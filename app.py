@@ -2,9 +2,11 @@ from flask import Flask, request
 from twilio.twiml.messaging_response import MessagingResponse
 import openai
 import gspread
+from google.oauth2.service_account import Credentials
 from datetime import datetime
 from dotenv import load_dotenv
 import os
+import json
 from website_search import load_website_data, find_best_match
 
 # Load environment variables
@@ -14,15 +16,20 @@ openai.api_key = os.getenv("OPENAI_API_KEY")
 # CONFIG
 app = Flask(__name__)
 
-# Google Sheet Setup
-gc = gspread.service_account(filename="whatsuppp-d60313f83869.json")
+# Google Sheets via credentials from environment variable
+creds_json = os.getenv("GOOGLE_CREDENTIALS")
+if not creds_json:
+    raise ValueError("❌ GOOGLE_CREDENTIALS переменная не установлена в Render.")
+
+creds_dict = json.loads(creds_json)
+gc = gspread.service_account_from_dict(creds_dict)
+
 sheet = gc.open_by_key("1EG0zNiWHtBow_K4cjlAE_BM0kYdDlrzS2tbih2DKEwQ").worksheet("Prijslijst")
-logsheet = gc.open_by_key("1EG0zNiWHtBow_K4cjlAE_BM0kYdDlrzS2tbih2DKEwQ").worksheet("Leads")  # ✅ NU OP DE JUISTE PLAATS
+logsheet = gc.open_by_key("1EG0zNiWHtBow_K4cjlAE_BM0kYdDlrzS2tbih2DKEwQ").worksheet("Leads")
 
 # Website knowledgebase
 pages_data, embeddings = load_website_data()
 
-# START MENU
 menu_text = """
 👋 Welkom bij Terrazzo!
 Waarmee kunnen we je helpen?
@@ -34,7 +41,6 @@ Waarmee kunnen we je helpen?
 5️⃣ Afspraak maken
 """
 
-# ASK CHATGPT
 def ask_chatgpt(message):
     response = openai.chat.completions.create(
         model="gpt-3.5-turbo",
@@ -43,7 +49,6 @@ def ask_chatgpt(message):
     )
     return response.choices[0].message.content.strip()
 
-# LEAD LOGGING
 def log_lead_to_sheet(sender, vraag, antwoord, fase):
     try:
         tijd = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -51,7 +56,6 @@ def log_lead_to_sheet(sender, vraag, antwoord, fase):
     except Exception as e:
         print(f"Loggen mislukt: {e}")
 
-# PRIJZEN
 def zoek_prijs(product_naam):
     try:
         producten = sheet.get_all_records()
@@ -64,7 +68,6 @@ def zoek_prijs(product_naam):
         return None
     return None
 
-# AFSPRAKEN
 dagen = ["Saturday 31 May", "Sunday 01 June", "Monday 02 June"]
 tijden = ["10", "13", "16"]
 afspraak_state = {}
