@@ -21,8 +21,7 @@ creds_json = os.getenv("GOOGLE_CREDENTIALS")
 if not creds_json:
     raise ValueError("❌ GOOGLE_CREDENTIALS переменная не установлена в Render.")
 
-# Декодируем экранированные переносы строк (\\n -> \n)
-creds_dict = json.loads(creds_json.replace('\\n', '\n'))
+creds_dict = json.loads(creds_json)
 gc = gspread.service_account_from_dict(creds_dict)
 
 sheet = gc.open_by_key("1EG0zNiWHtBow_K4cjlAE_BM0kYdDlrzS2tbih2DKEwQ").worksheet("Prijslijst")
@@ -65,7 +64,7 @@ def zoek_prijs(product_naam):
                 prijs = rij.get("Prijs per m²", "onbekend")
                 maat = rij.get("Afmeting", "")
                 return f"🧱 {rij['Productnaam']} {maat} kost {prijs} per m²."
-    except Exception:
+    except Exception as e:
         return None
     return None
 
